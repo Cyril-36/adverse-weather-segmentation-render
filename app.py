@@ -1,40 +1,31 @@
 """Render web service for the adverse-weather segmentation demo."""
 
-from functools import lru_cache
-from pathlib import Path
+import subprocess
+import sys
 from threading import Lock
 
 from flask import Flask, Response, jsonify, request
-import numpy as np
-import onnxruntime as ort
 
-ROOT = Path(__file__).resolve().parent
-HEIGHT = 360
-WIDTH = 640
-FRAME_BYTES = HEIGHT * WIDTH * 4
-MODELS = {"S", "same", "cross"}
-MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+from inference import FRAME_BYTES, MASK_BYTES, MODELS, ROOT
+
 inference_lock = Lock()
 
 app = Flask(__name__, static_folder=str(ROOT / "public"), static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = FRAME_BYTES
 
 
-@lru_cache(maxsize=2)
-def load_model(key):
-    options = ort.SessionOptions()
-    options.intra_op_num_threads = 1
-    options.inter_op_num_threads = 1
-    # Render's free instance has a 512 MB limit. Release intermediate tensors
-    # between requests instead of retaining a separate CPU arena per model.
-    options.enable_cpu_mem_arena = False
-    options.enable_mem_pattern = False
-    return ort.InferenceSession(
-        str(ROOT / "weights" / f"{key}.onnx"),
-        options,
-        providers=["CPUExecutionProvider"],
+def predict_in_process(frame, key):
+    # A short-lived process releases all runtime allocations before the next model.
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "inference.py"), key],
+        input=frame,
+        capture_output=True,
+        check=True,
+        timeout=25,
     )
+    if len(result.stdout) != MASK_BYTES:
+        raise ValueError("Unexpected mask length")
+    return result.stdout
 
 
 @app.get("/")
@@ -67,17 +58,16 @@ def segment():
             error="The server is processing another frame. Try again shortly."
         ), 503
     try:
-        rgb = np.frombuffer(frame, dtype=np.uint8).reshape(HEIGHT, WIDTH, 4)[..., :3]
-        normalized = (rgb.astype(np.float32) / np.float32(255) - MEAN) / STD
-        pixels = np.ascontiguousarray(normalized.transpose(2, 0, 1)[None])
-        masks = [
-            load_model(key).run(["labels"], {"pixels": pixels})[0].tobytes()
-            for key in keys
-        ]
+        masks = [predict_in_process(frame, key) for key in keys]
         return Response(
             b"".join(masks),
             mimetype="application/octet-stream",
             headers={"Cache-Control": "no-store"},
         )
+    except subprocess.TimeoutExpired:
+        return jsonify(error="Inference timed out. Please retry this frame."), 504
+    except (subprocess.CalledProcessError, ValueError) as error:
+        app.logger.error("Inference process failed: %s", error)
+        return jsonify(error="Inference failed. Please retry this frame."), 503
     finally:
         inference_lock.release()
