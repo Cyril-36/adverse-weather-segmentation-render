@@ -26,6 +26,10 @@ def load_model(key):
     options = ort.SessionOptions()
     options.intra_op_num_threads = 1
     options.inter_op_num_threads = 1
+    # Render's free instance has a 512 MB limit. Release intermediate tensors
+    # between requests instead of retaining a separate CPU arena per model.
+    options.enable_cpu_mem_arena = False
+    options.enable_mem_pattern = False
     return ort.InferenceSession(
         str(ROOT / "weights" / f"{key}.onnx"),
         options,
