@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: adverse-weather-segmentation
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 120 app:app
+    healthCheckPath: /healthz
+    autoDeployTrigger: "off"

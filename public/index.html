@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Compare three SegFormer-B0 models on adverse-weather road scenes.">
+  <title>Adverse Weather Segmentation</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="shell header-row">
+      <a class="brand" href="#">Adverse Weather Segmentation</a>
+      <nav aria-label="Page sections">
+        <a href="#comparison">Comparison</a>
+        <a href="#try">Try a model</a>
+        <a href="#results">Results</a>
+      </nav>
+    </div>
+  </header>
+  <main class="shell">
+    <section id="comparison" aria-labelledby="title">
+      <div class="intro">
+        <div>
+          <h1 id="title">Road segmentation<br class="desktop"> in adverse weather</h1>
+          <p class="lede">Compare supervised and cross-condition models on a winter dashcam clip, or run the models on your own footage.</p>
+        </div>
+        <aside class="summary" aria-label="Study summary">
+          <strong>63.05<span>%</span></strong>
+          <p>Cross-condition dev mIoU</p>
+          <p class="muted">207 ACDC images · one seed</p>
+        </aside>
+      </div>
+      <figure class="film">
+        <video controls playsinline preload="metadata" poster="media/comparison.jpg" src="media/comparison.mp4" aria-label="15-second original, supervised and cross-condition dashcam comparison"></video>
+        <figcaption>
+          <span>Wintry Dashcam by <a href="https://commons.wikimedia.org/wiki/File:Wintry_Dashcam_(Feb_2016,_720p).webm">brownpau</a> · <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a> · trimmed and overlaid</span>
+          <a class="download" href="media/comparison.mp4" download="segmentation-comparison.mp4">Download MP4 ↓</a>
+        </figcaption>
+      </figure>
+    </section>
+    <section id="try" aria-labelledby="try-heading">
+      <h2 id="try-heading">Try a model</h2>
+      <p>Your browser sends resized 360 × 640 frames to Render for segmentation. Video playback and exports are assembled on your device.</p>
+      <div class="workspace">
+        <div class="controls">
+          <label for="file">Image or video</label>
+          <input id="file" type="file" accept="image/*,video/*">
+          <label for="model">Model</label>
+          <select id="model">
+            <option value="cross">Cross-condition KD</option>
+            <option value="S">Supervised</option>
+            <option value="same">Same-condition KD</option>
+            <option value="compare">Compare supervised and cross-condition</option>
+          </select>
+          <label for="opacity">Overlay strength <output for="opacity" id="opacity-value">50%</output></label>
+          <input id="opacity" type="range" min="0" max="100" value="50">
+          <div class="actions">
+            <button id="run" type="button" disabled>Segment file</button>
+            <button id="sample" class="secondary" type="button">Try sample frame</button>
+          </div>
+          <p class="muted">Videos use two frames per second for up to 12 seconds. Maximum file size is 100 MB.</p>
+        </div>
+        <div class="output">
+          <p id="status" role="status" aria-live="polite">Choose a file or try a frame from the dashcam clip.</p>
+          <progress id="progress" hidden></progress>
+          <canvas id="canvas" hidden aria-label="Input and segmentation overlays"></canvas>
+          <div id="playback" class="actions" hidden>
+            <button id="play" class="secondary" type="button">Play</button>
+            <label class="seek-label">Sampled frame <input id="seek" type="range" min="0" max="0" value="0"></label>
+          </div>
+          <div class="actions" id="exports" hidden>
+            <button class="secondary" id="save-frame" type="button">Download frame</button>
+            <button class="secondary" id="save-video" type="button" hidden>Download sampled video</button>
+          </div>
+        </div>
+      </div>
+      <div id="legend" class="legend" aria-label="Segmentation classes"></div>
+    </section>
+    <section id="results" aria-labelledby="results-heading">
+      <h2 id="results-heading">Development results</h2>
+      <p>All three models scored about 63% overall. Cross-condition distillation showed a small worst-condition gain over supervised training on this seed.</p>
+      <div class="table-wrap">
+        <table>
+          <caption>mIoU (%) on the frozen ACDC development split at 540 × 960</caption>
+          <thead><tr><th scope="col">Model</th><th scope="col">Overall</th><th scope="col">Fog</th><th scope="col">Night</th><th scope="col">Rain</th><th scope="col">Snow</th><th scope="col">Worst</th></tr></thead>
+          <tbody id="weather"></tbody>
+        </table>
+      </div>
+      <div class="results-grid">
+        <div class="table-wrap">
+          <table>
+            <caption>mIoU (%) by annotated visibility</caption>
+            <thead><tr><th scope="col">Model</th><th scope="col">Clear</th><th scope="col">Ambiguous</th></tr></thead>
+            <tbody id="visibility"></tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <caption>Apple M2 · local PyTorch benchmark</caption>
+            <thead><tr><th scope="col">Resolution</th><th scope="col">Median / p95</th><th scope="col">15 s clip</th></tr></thead>
+            <tbody id="benchmark"></tbody>
+          </table>
+        </div>
+      </div>
+      <p class="muted">The benchmark measures the local Streamlit app. Browser performance varies by device.</p>
+    </section>
+  </main>
+  <footer class="shell">
+    <span>Research and evaluation use</span>
+    <a href="https://acdc.vision.ee.ethz.ch/">ACDC dataset</a>
+    <a href="https://arxiv.org/abs/2104.13395">Dataset paper</a>
+    <a href="models/LICENSE-SegFormer.txt">SegFormer model license</a>
+  </footer>
+</body>
+</html>
